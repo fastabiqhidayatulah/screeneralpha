@@ -16,20 +16,25 @@ _client = None
 
 
 def _credentials():
+    creds = None
     try:
         import streamlit as st
         secrets = st.secrets
         if "firebase" in secrets:
-            return secrets["firebase"]
+            creds = secrets["firebase"]
     except Exception:
         pass
-    try:
-        raw = os.environ.get("FIREBASE_CREDENTIALS")
-        if raw:
-            return json.loads(raw)
-    except Exception:
-        pass
-    return None
+    if creds is None:
+        try:
+            raw = os.environ.get("FIREBASE_CREDENTIALS")
+            if raw:
+                creds = json.loads(raw)
+        except Exception:
+            pass
+    if isinstance(creds, dict) and creds.get("private_key"):
+        creds = dict(creds)
+        creds["private_key"] = creds["private_key"].replace("\\n", "\n")
+    return creds
 
 
 def _db():
