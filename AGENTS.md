@@ -13,7 +13,7 @@ Or use `run.bat` (Windows, note: hardcoded Python path `C:\Users\PMP04\AppData\L
 
 ## Dependencies & runtime requirements
 - `pip install -r requirements.txt` (streamlit, pandas, numpy, requests, yfinance, mcp)
-- **Node.js + npx required at runtime** — `stockbit_client.py` launches `npx -y stockbit-mcp` as a subprocess via MCP stdio protocol
+- **Node.js >= 22 + npx required at runtime** — `stockbit_client.py` launches `npx -y stockbit-mcp` as a subprocess via MCP stdio protocol. `stockbit-mcp@1.x` requires Node >= 22, but Streamlit Cloud's base image only ships older Node via apt. Handled by `_ensure_node()` in `stockbit_client.py`, which downloads official Node `v22.14.0` binaries into `.node-extra/` (gitignored) on first run — do not remove/replace it. First scan after cold start is slower (one-time download)
 - Yahoo Finance rate limits: app adds `time.sleep(0.3)` between yfinance calls; don't remove this
 
 ## Caching

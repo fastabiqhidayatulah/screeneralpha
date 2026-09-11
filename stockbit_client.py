@@ -6,14 +6,105 @@ import asyncio
 import json
 import os
 import hashlib
+import platform
+import subprocess
+import tarfile
+import tempfile
+import urllib.request
+import zipfile
 from datetime import date
 from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
 
 
+_NODE_VERSION = "v22.14.0"
+
+
+def _ensure_node():
+    """Make sure Node.js >= 22 (required by stockbit-mcp) is on PATH.
+
+    No-op when a recent-enough node is already installed. Otherwise downloads
+    the official prebuilt binary into a local writable dir (repo .node-extra,
+    falling back to the system temp dir) and prepends it to PATH. Needed on
+    Streamlit Cloud / platforms where apt only ships an older Node.
+    """
+    def node_major(exe="node"):
+        try:
+            out = subprocess.run([exe, "-v"], capture_output=True, text=True, timeout=10)
+            txt = (out.stdout or "").strip()
+            if txt.startswith("v"):
+                txt = txt[1:]
+            return int(txt.split(".")[0]) if txt else 0
+        except Exception:
+            return 0
+
+    if node_major() >= 22:
+        return
+
+    base = None
+    for candidate in [
+        os.path.join(os.path.dirname(os.path.abspath(__file__)), ".node-extra"),
+        os.path.join(tempfile.gettempdir(), "node-extra"),
+    ]:
+        try:
+            os.makedirs(candidate, exist_ok=True)
+            probe = os.path.join(candidate, ".probe")
+            with open(probe, "w") as f:
+                f.write(".")
+            os.remove(probe)
+            base = candidate
+            break
+        except OSError:
+            continue
+    if base is None:
+        return
+
+    sys_name = platform.system().lower()
+    if sys_name == "windows":
+        dist_name = f"node-{_NODE_VERSION}-win-x64"
+        filename = f"{dist_name}.zip"
+        extract = zipfile.ZipFile
+    elif sys_name == "darwin":
+        dist_name = f"node-{_NODE_VERSION}-darwin-x64"
+        filename = f"{dist_name}.tar.gz"
+        extract = tarfile.open
+    else:
+        dist_name = f"node-{_NODE_VERSION}-linux-x64"
+        filename = f"{dist_name}.tar.gz"
+        extract = tarfile.open
+
+    is_zip = filename.endswith(".zip")
+    root = os.path.join(base, dist_name)
+    bin_dir = root if is_zip else os.path.join(root, "bin")
+    node_exe = "node.exe" if sys_name == "windows" else "node"
+
+    if not os.path.exists(os.path.join(bin_dir, node_exe)):
+        url = f"https://nodejs.org/dist/{_NODE_VERSION}/{filename}"
+        dest = os.path.join(base, filename)
+        try:
+            urllib.request.urlretrieve(url, dest)
+            with extract(dest) as z:
+                z.extractall(base)
+        finally:
+            try:
+                os.remove(dest)
+            except OSError:
+                pass
+
+    if not os.path.exists(os.path.join(bin_dir, node_exe)):
+        return
+
+    os.environ["PATH"] = bin_dir + os.pathsep + os.environ.get("PATH", "")
+    os.environ.setdefault("npm_config_cache", os.path.join(base, "npm-cache"))
+    os.environ.setdefault("npm_config_fund", "false")
+    os.environ.setdefault("npm_config_update_notifier", "false")
+    os.environ.setdefault("NO_UPDATE_NOTIFIER", "1")
+
+
 class StockbitClient:
 
     def __init__(self):
+        _ensure_node()
         self.server_params = StdioServerParameters(
             command="npx",
             args=["-y", "stockbit-mcp"],

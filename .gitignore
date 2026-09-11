@@ -1,5 +1,6 @@
 cache/
 __pycache__/
+.node-extra/
 *.pyc
 .streamlit/secrets.toml
 .env
