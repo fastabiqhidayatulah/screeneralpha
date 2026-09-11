@@ -707,6 +707,20 @@ if scan_btn:
                 "💎 Value (1-3 Bulan)": ("skor_value", th_value, "💎 VALUE", "PER + PBV + Earnings Yield", False),
                 "🏆 Hidden Gem (3-12 Bulan)": ("skor_hidden_gem", th_hg, "🏆 HIDDEN GEM", "PER + PBV + Forward PE", False),
             }
+            try:
+                from firestore_db import save_scan, save_stock_snapshots
+                save_stock_snapshots(df)
+                if kategori in kategori_map:
+                    key, threshold, nama_cat, _, _ = kategori_map[kategori]
+                    df_save = df[df[key] >= threshold]
+                    if not df_save.empty:
+                        save_scan(df_save.to_dict("records"), nama_cat, threshold)
+                else:
+                    if not df.empty:
+                        save_scan(df.to_dict("records"), "Semua Kategori", 0)
+                st.caption("💾 Hasil scan tersimpan ke Firestore")
+            except Exception as e:
+                print(f"Firestore save skipped: {e}")
             if kategori in kategori_map:
                 key, threshold, nama, desc, show_segar = kategori_map[kategori]
                 df_result = df[df[key] >= threshold].copy()

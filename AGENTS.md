@@ -1,9 +1,10 @@
 # AGENTS.md
 
 ## What this is
-Streamlit-based Indonesian stock screener. Two Python files:
+Streamlit-based Indonesian stock screener. Python files:
 - `app_v2_realdata.py` — single-file UI + scoring logic (the entrypoint)
 - `stockbit_client.py` — MCP client wrapper with file-based JSON cache
+- `firestore_db.py` — optional Firestore persistence (scan history + daily per-stock snapshots); fails silently when no credentials are set
 
 ## Run
 ```
@@ -22,7 +23,7 @@ Or use `run.bat` (Windows, note: hardcoded Python path `C:\Users\PMP04\AppData\L
 - Deleting `cache/` is safe; it rebuilds on next scan
 
 ## Gotchas
-- `.streamlit/secrets.toml` is gitignored — if Streamlit secrets are needed, they must be created locally
+- `.streamlit/secrets.toml` is gitignored — Firebase service-account JSON goes in section `[firebase]` (or env `FIREBASE_CREDENTIALS`). Without it, `firestore_db.py` is a silent no-op. Requires `firebase-admin` from requirements.txt
 - Bare `except:` blocks throughout `app_v2_realdata.py` — errors are silently swallowed
 - Stock tickers use `.JK` suffix (Yahoo Finance convention for Indonesia/IDX)
 - `sys.path.insert` `app_v2_realdata.py:19` adds script dir to path for local import of `stockbit_client`
